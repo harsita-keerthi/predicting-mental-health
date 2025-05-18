@@ -1,0 +1,478 @@
+# See number of rows
+    1  wc -l survey.csv
+# See number of columns
+    2  awk -F',' 'NR==1 {print NF}' survey.csv
+
+# View the top 5 rows of the original dataset
+    3  head -n 5 survey.csv
+
+# View the numbered columns of the dataset
+    4  head -n 1 survey.csv | tr ',' '\n' | nl
+
+# Remove columns: Timestamp, Country, State, Comments
+    5  cut -d',' -f2-3,6-26 survey.csv > remove_cols.csv
+
+# See the column headers of the dataset after removing columns
+    6  head -n 1 remove_cols.csv
+
+# Find columns with 'NA' missing values
+    7  awk -F',' '
+NR==1 {
+    for (i = 1; i <= NF; i++) header[i] = $i
+    next
+}
+{
+    for (i = 1; i <= NF; i++) {
+        field = $i
+        gsub(/^"|"$/, "", field)
+        gsub(/[ \t\r\n]+/, "", field)
+        if (field == "NA") missing[i]++
+    }
+}
+END {
+    for (i = 1; i <= length(header); i++) {
+        if (missing[i] > 0)
+            print header[i] ": " missing[i] " missing values"
+    }
+}' remove_cols.csv
+
+# See all unique values in 'Age' column 1
+    9  cut -d',' -f1 remove_cols.csv | sort | uniq
+
+# Clean 'Age' column keeping 18-72 years old only
+   10  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    age = $1
+    gsub(/^"|"$/, "", age)
+    if (age ~ /^[0-9]+$/ && age >= 18 && age <= 72)
+        print
+}' remove_cols.csv > clean_age.csv
+
+# Check age after cleaned
+   11  cut -d',' -f1 clean_age.csv | sort | uniq
+
+# See all unique values of 'Gender' column 2
+   13  cut -d',' -f2 clean_age.csv | sort | uniq
+
+# Standardize 'Gender' column to ['female', 'male', 'non-binary']
+   14  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    g = $2
+    gsub(/^"|"$/, "", g)  # remove quotes
+    g = tolower(g)
+
+    if (g ~ /^(m|male|man|cis male)$/) $2 = "\"male\""
+    else if (g ~ /^(f|female|woman|cis female)$/) $2 = "\"female\""
+    else $2 = "\"non-binary\""
+
+    print
+}' clean_age.csv > clean_gender.csv
+
+# See all unique values of 'Gender' column 2 after cleaning
+   15  cut -d',' -f2 clean_gender.csv | sort | uniq
+
+# See all unique values of 'self_employed' column 3
+   16  cut -d',' -f3 clean_gender.csv | sort | uniq
+
+# Remove 'NA' in 'self_employed' by changing 'NA' to 'No'
+   19  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $3
+    gsub(/^"|"$/, "", val)
+    if (val == "NA") $3 = "\"No\""
+    print
+}' clean_gender.csv > clean_self_employed.csv
+
+# See all unique values of 'self_employed' after cleaning
+   20  cut -d',' -f3 clean_self_employed.csv | sort | uniq
+
+# See 'NA' in 'work_interfere' column 6
+   26  cut -d',' -f6 clean_self_employed.csv | sort | uniq
+
+# Remove 'NA' in 'work_intefere' by changing 'NA' to 'Don't Know'
+# For consistent data throughout the entire dataset
+   27  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $6
+    gsub(/^"|"$/, "", val)
+    if (val == "NA") $6 = "\"Don'\''t know\""
+    print
+}' clean_self_employed.csv > clean_work_interfere.csv
+
+# See all unique values of 'clean_work_interfere' column after cleaning
+   28  cut -d',' -f6 clean_work_interfere.csv | sort | uniq
+
+# Encoding 'Gender' column 2
+   37  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    g = $2
+    gsub(/^"|"$/, "", g)
+    if (g == "female") $2 = 0
+    else if (g == "male") $2 = 1
+    else $2 = 2
+    print
+}' clean_work_interfere.csv > encoded_gender.csv
+
+# See unique values of 'Gender' column after encoding
+   40  cut -d',' -f2 encoded_gender.csv | sort | uniq
+
+# Encoding 'family_history' column 4
+   44  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    f = $4
+    gsub(/^"|"$/, "", f)
+    if (f == "No") $4 = 0
+    else $4 = 1
+    print
+}' encoded_gender.csv > encoded_family_history.csv
+
+# Encoding 'self_employed' column 3
+   45  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    s = $3
+    gsub(/^"|"$/, "", s)
+    if (s == "No") $3 = 0
+    else $3 = 1
+    print
+}' encoded_family_history.csv > encoded_self_employed.csv
+
+# Encoding 'treatment' column 5
+   46  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 {print; next }
+{
+    t = $5
+    gsub(/^"|"$/, "", t)
+    if (t == "No") $5 = 0
+    else $5 = 1
+    print
+}' encoded_self_employed.csv > encoded_treatment.csv
+
+# Encoding 'no_employees' column 7
+   47  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 {print; next }
+{
+    no_employees = $7
+    gsub(/^"|"$/, "", no_employees)
+    if (no_employees == "1-5") $7 = 0
+    else if (no_employees == "6-25") $7 = 1
+    else if (no_employees == "26-100") $7 = 2
+    else if (no_employees == "100-500") $7 = 3
+    else if (no_employees == "500-1000") $7 = 4
+    else $7 = 5
+    print
+}' encoded_treatment.csv > encoded_no_employees.csv
+
+# Encoding 'remote_work' column 8
+   48  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 {print; next }
+{
+    r = $8
+    gsub(/^"|"$/, "", r)
+    if (r == "No") $8 = 0
+    else $8 = 1
+    print
+}' encoded_no_employees.csv > encoded_remote_work.csv
+
+# Encoding 'tech_company' column 9
+   49  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    tech = $9
+    gsub(/^"|"$/, "", tech)
+    if (tech == "No") $9 = 0
+    else $9 = 1
+    print
+}' encoded_remote_work.csv > encoded_tech_company.csv
+
+# Encoding 'benefits' column 10
+   50  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    b = $10
+    gsub(/^"|"$/, "", b)
+    if (b == "Don'\''t know") $10 = 0
+    else if (b == "No") $10 = 1
+    else if (b == "Yes") $10 = 2
+    else $10 = -1 
+    print
+}' encoded_tech_company.csv > encoded_benefits.csv
+
+# Encoding 'care_options' column 11
+   51  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    c = $11
+    gsub(/^"|"$/, "", c)
+    if (c == "No") $11 = 0
+    else if (c == "Yes") $11 = 1
+    else $11 = 2
+    print
+}' encoded_benefits.csv > encoded_care_options.csv
+
+# Encoding 'wellness_programs' column 12
+   52  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    w = $12
+    gsub(/^"|"$/, "", w)
+    if (w == "Don'\''t know") $12 = 0
+    else if (w == "No") $12 = 1
+    else $12 = 2
+    print
+}' encoded_care_options.csv > encoded_wellness_programs.csv
+
+# Encoding 'seek_help' column 13
+   53  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    s = $13
+    gsub(/^"|"$/, "", s)
+    if (s == "Don'\''t know") $13 = 0
+    else if (s == "No") $13 = 1
+    else $13 = 2
+    print
+}' encoded_wellness_programs.csv > encoded_seek_help.csv
+
+# Encoding 'work_intefere' column 6
+   54  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    w = $6
+    gsub(/^"|"$/, "", w)
+    if (w == "Don'\''t know") $6 = 0
+    else if (w == "Never") $6 = 1
+    else if (w == "Often") $6 = 2
+    else if (w == "Rarely") $6 = 3
+    else $6 = 4
+    print
+}' encoded_seek_help.csv > encoded_work_interfere.csv
+
+# Encoding 'anonymity' column 14
+   55  awk -F',' '
+BEGIN { OFS = "," }
+NR == 1 { print; next }
+{
+    b = $14
+    gsub(/^"|"$/, "", b)
+    if (b == "Don'\''t know") $14 = 0
+    else if (b == "No") $14 = 1
+    else if (b == "Yes") $14 = 2
+    else $14 = -1 
+    print
+}' encoded_work_interfere.csv > encoded_anonymity.csv
+
+# Encoding 'leave' column 15
+   56  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $15
+    gsub(/^"|"$/, "", val)
+    gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", val)
+
+    if (val == "Don'\''t know") $15 = 0
+    else if (val == "Somewhat difficult") $15 = 1
+    else if (val == "Somewhat easy") $15 = 2
+    else if (val == "Very difficult") $15 = 3
+    else if (val == "Very easy") $15 = 4
+
+    print
+}' encoded_anonymity.csv > encoded_leave_encoded.csv
+
+# Encoding 'mental_health_consequence' column 16
+   57  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $16
+    gsub(/^"|"$/, "", val)
+    gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", val)
+
+    if (val == "No") $16 = 0
+    else if (val == "Yes") $16 = 1
+    else if (val == "Maybe") $16 = 2
+
+    print
+}' encoded_leave_encoded.csv > encoded_mh_consequence_encoded.csv
+
+# Encoding 'physical_health_consequence' column 17
+   58  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $17
+    gsub(/^"|"$/, "", val)
+    gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", val)
+
+    if (val == "No") $17 = 0
+    else if (val == "Yes") $17 = 1
+    else if (val == "Maybe") $17 = 2
+
+    print
+}' encoded_mh_consequence_encoded.csv > encoded_ph_consequence_encoded.csv
+
+# Encoding 'coworkers' column 18
+   59  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $18
+    gsub(/^"|"$/, "", val)
+    gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", val)
+
+    if (val == "No") $18 = 0
+    else if (val == "Yes") $18 = 1
+    else if (val == "Some of them") $18 = 2
+
+    print
+}' encoded_ph_consequence_encoded.csv > encoded_coworkers_encoded.csv
+
+# Encoding 'supervisor' column 19
+   60  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $19
+    gsub(/^"|"$/, "", val)
+    gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", val)
+
+    if (val == "No") $19 = 0
+    else if (val == "Yes") $19 = 1
+    else if (val == "Some of them") $19 = 2
+
+    print
+}' encoded_coworkers_encoded.csv > encoded_supervisor_encoded.csv
+
+# Encoding 'mental_health_interview' column 20
+   61  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $20
+    gsub(/^"|"$/, "", val)
+    gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", val)
+
+    if (val == "No") $20 = 0
+    else if (val == "Yes") $20 = 1
+    else if (val == "Maybe") $20 = 2
+
+    print
+}' encoded_supervisor_encoded.csv > encoded_mh_interview_encoded.csv
+
+# Encoding 'physical_health_interveiw' column 21
+   62  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $21
+    gsub(/^"|"$/, "", val)
+    gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", val)
+
+    if (val == "No") $21 = 0
+    else if (val == "Yes") $21 = 1
+    else if (val == "Maybe") $21 = 2
+
+    print
+}' encoded_mh_interview_encoded.csv > encoded_ph_interview_encoded.csv
+
+# Encoding 'mental_health_vs_physical_health' column 22
+   63  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $22
+    gsub(/^"|"$/, "", val)
+    gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", val)
+
+    if (val == "No") $22 = 0
+    else if (val == "Yes") $22 = 1
+    else if (val == "Don'\''t know") $22 = 2
+
+    print
+}' encoded_ph_interview_encoded.csv > encoded_mental_vs_physical_encoded.csv
+
+# Encoding 'obs_consequence' column 23
+   64  awk -F',' '
+BEGIN { OFS="," }
+NR == 1 { print; next }
+{
+    val = $23
+    gsub(/^"|"$/, "", val)
+    gsub(/^[ \t\r\n]+|[ \t\r\n]+$/, "", val)
+
+    if (val == "No") $23 = 0
+    else if (val == "Yes") $23 = 1
+
+    print
+}' encoded_mental_vs_physical_encoded.csv > encoded_obs_consequence_encoded.csv
+
+# See first 5 rows after encoded
+   65  head -n 5 encoded_obs_consequence_encoded.csv 
+
+# Find duplicate rows
+   66  sort encoded_obs_consequence_encoded.csv | uniq -d
+
+# Remove duplicate rows, keep the header
+   67  (head -n 1 encoded_obs_consequence_encoded.csv && tail -n +2 encoded_obs_consequence_encoded.csv | sort | uniq) > no_duplicate.csv
+
+# Double check for duplicate rows
+   68  sort no_duplicate.csv | uniq -d
+
+# Find min/max of rows
+   69  for col in 1 2 6 7 10 11 12 13 14 15 16 17 18 19 20 21 22; do   tail -n +2 no_duplicate.csv | cut -d',' -f$col | grep -E '^[0-9]+$' |   sort -n | awk -v col=$col 'NR==1{min=$1} {max=$1} END{print "Column", col, "Min:", min, "Max:", max}'; done
+
+# Normalize 17 columns
+   70  awk -F',' 'BEGIN {
+  OFS=","
+  min[1]=18;  max[1]=72;
+  min[2]=0;   max[2]=2;
+  min[6]=0;   max[6]=4;
+  min[7]=0;   max[7]=5;
+  min[10]=0;  max[10]=2;
+  min[11]=0;  max[11]=2;
+  min[12]=0;  max[12]=2;
+  min[13]=0;  max[13]=2;
+  min[14]=0;  max[14]=2;
+  min[15]=0;  max[15]=4;
+  min[16]=0;  max[16]=2;
+  min[17]=0;  max[17]=2;
+  min[18]=0;  max[18]=2;
+  min[19]=0;  max[19]=2;
+  min[20]=0;  max[20]=2;
+  min[21]=0;  max[21]=2;
+  min[22]=0;  max[22]=2;
+}
+NR==1 { print; next }
+{
+  for (i in min) {
+    if ((max[i] - min[i]) > 0)
+      $i = ($i - min[i]) / (max[i] - min[i])
+  }
+  print
+}' no_duplicate.csv > normalized_no_duplicate.csv
+
+# See first 5 rows after normalization
+   71  head -n 5 normalized_no_duplicate.csv 
